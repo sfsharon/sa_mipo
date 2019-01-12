@@ -18,11 +18,9 @@ import android.widget.EditText;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.view.View;
-import android.view.View.OnTouchListener;
 import android.view.MotionEvent;
 
 import android.widget.Button;
-import android.widget.Toast;
 
 import com.macroyau.blue2serial.BluetoothDeviceListDialog;
 import com.macroyau.blue2serial.BluetoothSerial;
@@ -37,6 +35,11 @@ public class TerminalActivity extends AppCompatActivity
         implements BluetoothSerialListener, BluetoothDeviceListDialog.OnDeviceSelectedListener {
 
     private static final int REQUEST_ENABLE_BLUETOOTH = 1;
+
+    private static final int ELM327_STATE_INIT = 1;
+    private static final int ELM327_STATE_SET_HEADER = 2;
+    private static final int ELM327_STATE_SET_FRAME = 3;
+    private int state = ELM327_STATE_INIT;
 
     private BluetoothSerial bluetoothSerial;
 
@@ -100,18 +103,18 @@ public class TerminalActivity extends AppCompatActivity
             }
         });
 
-        setupButton.setOnTouchListener(new View.OnTouchListener() {
-            @Override
-            public boolean onTouch(View v, MotionEvent event) {
-                switch(event.getAction()) {
-                    case MotionEvent.ACTION_DOWN:
-                        bluetoothSerial.write("ATSH456", crlf);
-                        setupButton.setBackgroundColor(Color.MAGENTA);
-                        return true;
-                }
-                return false;
-            }
-        });
+//        setupButton.setOnTouchListener(new View.OnTouchListener() {
+//            @Override
+//            public boolean onTouch(View v, MotionEvent event) {
+//                switch(event.getAction()) {
+//                    case MotionEvent.ACTION_DOWN:
+//                        bluetoothSerial.write("ATSH456", crlf);
+//                        setupButton.setBackgroundColor(Color.MAGENTA);
+//                        return true;
+//                }
+//                return false;
+//            }
+//        });
 
     }
 
@@ -132,6 +135,7 @@ public class TerminalActivity extends AppCompatActivity
             if (!bluetoothSerial.isConnected()) {
                 bluetoothSerial.start();
                 bluetoothSerial.write("AT CAF0", crlf);
+                state = ELM327_STATE_SET_HEADER;
             }
         }
     }
@@ -207,6 +211,7 @@ public class TerminalActivity extends AppCompatActivity
                 if (resultCode == Activity.RESULT_OK) {
                     bluetoothSerial.setup();
                     bluetoothSerial.write("AT CAF0", crlf);
+                    state = ELM327_STATE_SET_HEADER;
                 }
                 break;
         }
@@ -295,6 +300,12 @@ public class TerminalActivity extends AppCompatActivity
                 bluetoothSerial.getConnectedDeviceName(),
                 message));
         svTerminal.post(scrollTerminalToBottom);
+        if (state == ELM327_STATE_SET_HEADER)
+        {
+            bluetoothSerial.write("ATSH789", crlf);
+            state = ELM327_STATE_SET_FRAME;
+        }
+
     }
 
     @Override
