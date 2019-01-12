@@ -36,9 +36,9 @@ public class TerminalActivity extends AppCompatActivity
 
     private static final int REQUEST_ENABLE_BLUETOOTH = 1;
 
-    private static final int ELM327_STATE_INIT = 1;
+    private static final int ELM327_STATE_INIT       = 1;
     private static final int ELM327_STATE_SET_HEADER = 2;
-    private static final int ELM327_STATE_SET_FRAME = 3;
+    private static final int ELM327_STATE_SET_FRAME  = 3;
     private int state = ELM327_STATE_INIT;
 
     private BluetoothSerial bluetoothSerial;
@@ -51,8 +51,8 @@ public class TerminalActivity extends AppCompatActivity
 
     private boolean crlf = true;
 
-    private Button activationButton;
-    private Button setupButton;
+    private Button forwardButton;
+    private Button backwardButton;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -62,8 +62,8 @@ public class TerminalActivity extends AppCompatActivity
         // Find UI views and set listeners
         svTerminal = (ScrollView) findViewById(R.id.terminal);
         tvTerminal = (TextView) findViewById(R.id.tv_terminal);
-        activationButton = (Button) findViewById(R.id.button);
-        setupButton = (Button) findViewById(R.id.button2);
+        forwardButton  = (Button) findViewById(R.id.forward_button);
+        backwardButton = (Button) findViewById(R.id.backward_button);
 
 
         etSend = (EditText) findViewById(R.id.et_send);
@@ -85,36 +85,41 @@ public class TerminalActivity extends AppCompatActivity
         bluetoothSerial = new BluetoothSerial(this, this);
 
 
-        activationButton.setOnTouchListener(new View.OnTouchListener() {
+        forwardButton.setOnTouchListener(new View.OnTouchListener() {
             @Override
             public boolean onTouch(View v, MotionEvent event) {
                 switch(event.getAction()) {
                     case MotionEvent.ACTION_DOWN:
 
-                        bluetoothSerial.write("30 10 77", crlf);
-                        activationButton.setBackgroundColor(Color.GREEN);
+                        bluetoothSerial.write("30 01 00", crlf);
+                        forwardButton.setBackgroundColor(Color.GREEN);
                         return true;
                     case MotionEvent.ACTION_UP:
-                        activationButton.setBackgroundColor(Color.RED);
-                        bluetoothSerial.write("30 11 77", crlf);
+                        bluetoothSerial.write("30 00 00", crlf);
+                        forwardButton.setBackgroundColor(Color.RED);
                         return true;
                 }
                 return false;
             }
         });
 
-//        setupButton.setOnTouchListener(new View.OnTouchListener() {
-//            @Override
-//            public boolean onTouch(View v, MotionEvent event) {
-//                switch(event.getAction()) {
-//                    case MotionEvent.ACTION_DOWN:
-//                        bluetoothSerial.write("ATSH456", crlf);
-//                        setupButton.setBackgroundColor(Color.MAGENTA);
-//                        return true;
-//                }
-//                return false;
-//            }
-//        });
+        backwardButton.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                switch(event.getAction()) {
+                    case MotionEvent.ACTION_DOWN:
+
+                        bluetoothSerial.write("30 00 01", crlf);
+                        backwardButton.setBackgroundColor(Color.CYAN);
+                        return true;
+                    case MotionEvent.ACTION_UP:
+                        bluetoothSerial.write("30 00 00", crlf);
+                        backwardButton.setBackgroundColor(Color.MAGENTA);
+                        return true;
+                }
+                return false;
+            }
+        });
 
     }
 
