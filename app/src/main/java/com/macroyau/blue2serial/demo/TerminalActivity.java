@@ -43,9 +43,9 @@ public class TerminalActivity extends AppCompatActivity
 
     private BluetoothSerial bluetoothSerial;
 
-    private ScrollView svTerminal;
-    private TextView tvTerminal;
-    private EditText etSend;
+//    private ScrollView svTerminal;
+//    private TextView tvTerminal;
+//    private EditText etSend;
 
     private MenuItem actionConnect, actionDisconnect;
 
@@ -60,26 +60,26 @@ public class TerminalActivity extends AppCompatActivity
         setContentView(R.layout.activity_terminal);
 
         // Find UI views and set listeners
-        svTerminal = (ScrollView) findViewById(R.id.terminal);
-        tvTerminal = (TextView) findViewById(R.id.tv_terminal);
+//        svTerminal = (ScrollView) findViewById(R.id.terminal);
+//        tvTerminal = (TextView) findViewById(R.id.tv_terminal);
         forwardButton  = (Button) findViewById(R.id.forward_button);
         backwardButton = (Button) findViewById(R.id.backward_button);
 
 
-        etSend = (EditText) findViewById(R.id.et_send);
-        etSend.setOnEditorActionListener(new TextView.OnEditorActionListener() {
-            @Override
-            public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
-                if (actionId == EditorInfo.IME_ACTION_SEND) {
-                    String send = etSend.getText().toString().trim();
-                    if (send.length() > 0) {
-                        bluetoothSerial.write(send, crlf);
-                        etSend.setText("");
-                    }
-                }
-                return false;
-            }
-        });
+//        etSend = (EditText) findViewById(R.id.et_send);
+//        etSend.setOnEditorActionListener(new TextView.OnEditorActionListener() {
+//            @Override
+//            public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
+//                if (actionId == EditorInfo.IME_ACTION_SEND) {
+//                    String send = etSend.getText().toString().trim();
+//                    if (send.length() > 0) {
+//                        bluetoothSerial.write(send, crlf);
+//                        etSend.setText("");
+//                    }
+//                }
+//                return false;
+//            }
+//        });
 
         // Create a new instance of BluetoothSerial
         bluetoothSerial = new BluetoothSerial(this, this);
@@ -301,10 +301,10 @@ public class TerminalActivity extends AppCompatActivity
     @Override
     public void onBluetoothSerialRead(String message) {
         // Print the incoming message on the terminal screen
-        tvTerminal.append(getString(R.string.terminal_message_template,
-                bluetoothSerial.getConnectedDeviceName(),
-                message));
-        svTerminal.post(scrollTerminalToBottom);
+//        tvTerminal.append(getString(R.string.terminal_message_template,
+//                bluetoothSerial.getConnectedDeviceName(),
+//                message));
+//        svTerminal.post(scrollTerminalToBottom);
         if (state == ELM327_STATE_SET_HEADER)
         {
             bluetoothSerial.write("ATSH789", crlf);
@@ -316,10 +316,10 @@ public class TerminalActivity extends AppCompatActivity
     @Override
     public void onBluetoothSerialWrite(String message) {
         // Print the outgoing message on the terminal screen
-        tvTerminal.append(getString(R.string.terminal_message_template,
-                bluetoothSerial.getLocalAdapterName(),
-                message));
-        svTerminal.post(scrollTerminalToBottom);
+//        tvTerminal.append(getString(R.string.terminal_message_template,
+//                bluetoothSerial.getLocalAdapterName(),
+//                message));
+//        svTerminal.post(scrollTerminalToBottom);
     }
 
     /* Implementation of BluetoothDeviceListDialog.OnDeviceSelectedListener */
@@ -336,7 +336,7 @@ public class TerminalActivity extends AppCompatActivity
         @Override
         public void run() {
             // Scroll the terminal screen to the bottom
-            svTerminal.fullScroll(ScrollView.FOCUS_DOWN);
+//            svTerminal.fullScroll(ScrollView.FOCUS_DOWN);
         }
     };
 
