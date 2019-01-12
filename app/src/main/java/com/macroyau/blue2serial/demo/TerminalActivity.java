@@ -5,16 +5,24 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.view.KeyEvent;
 import android.view.Menu;
+
 import android.view.MenuItem;
 import android.view.inputmethod.EditorInfo;
 import android.widget.EditText;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import android.view.View;
+import android.view.View.OnTouchListener;
+import android.view.MotionEvent;
+
+import android.widget.Button;
+import android.widget.Toast;
 
 import com.macroyau.blue2serial.BluetoothDeviceListDialog;
 import com.macroyau.blue2serial.BluetoothSerial;
@@ -38,7 +46,10 @@ public class TerminalActivity extends AppCompatActivity
 
     private MenuItem actionConnect, actionDisconnect;
 
-    private boolean crlf = false;
+    private boolean crlf = true;
+
+    private Button activationButton;
+    private Button setupButton;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -48,6 +59,10 @@ public class TerminalActivity extends AppCompatActivity
         // Find UI views and set listeners
         svTerminal = (ScrollView) findViewById(R.id.terminal);
         tvTerminal = (TextView) findViewById(R.id.tv_terminal);
+        activationButton = (Button) findViewById(R.id.button);
+        setupButton = (Button) findViewById(R.id.button2);
+
+
         etSend = (EditText) findViewById(R.id.et_send);
         etSend.setOnEditorActionListener(new TextView.OnEditorActionListener() {
             @Override
@@ -65,6 +80,39 @@ public class TerminalActivity extends AppCompatActivity
 
         // Create a new instance of BluetoothSerial
         bluetoothSerial = new BluetoothSerial(this, this);
+
+
+        activationButton.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                switch(event.getAction()) {
+                    case MotionEvent.ACTION_DOWN:
+
+                        bluetoothSerial.write("30 10 77", crlf);
+                        activationButton.setBackgroundColor(Color.GREEN);
+                        return true;
+                    case MotionEvent.ACTION_UP:
+                        activationButton.setBackgroundColor(Color.RED);
+                        bluetoothSerial.write("30 11 77", crlf);
+                        return true;
+                }
+                return false;
+            }
+        });
+
+        setupButton.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                switch(event.getAction()) {
+                    case MotionEvent.ACTION_DOWN:
+                        bluetoothSerial.write("ATSH456", crlf);
+                        setupButton.setBackgroundColor(Color.MAGENTA);
+                        return true;
+                }
+                return false;
+            }
+        });
+
     }
 
     @Override
@@ -83,6 +131,7 @@ public class TerminalActivity extends AppCompatActivity
         if (bluetoothSerial.checkBluetooth() && bluetoothSerial.isBluetoothEnabled()) {
             if (!bluetoothSerial.isConnected()) {
                 bluetoothSerial.start();
+                bluetoothSerial.write("AT CAF0", crlf);
             }
         }
     }
@@ -157,6 +206,7 @@ public class TerminalActivity extends AppCompatActivity
                 // Set up Bluetooth serial port when Bluetooth adapter is turned on
                 if (resultCode == Activity.RESULT_OK) {
                     bluetoothSerial.setup();
+                    bluetoothSerial.write("AT CAF0", crlf);
                 }
                 break;
         }
