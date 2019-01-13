@@ -41,4 +41,11 @@
         android:layout_marginBottom="125dp"
         android:text="Forward Parking" />
 
+    <Button
+        android:id="@+id/init_elm327"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Initialization"
+        android:textColor="@android:color/background_dark" />
+
 </RelativeLayout>

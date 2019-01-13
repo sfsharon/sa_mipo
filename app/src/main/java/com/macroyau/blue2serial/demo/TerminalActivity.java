@@ -22,6 +22,8 @@ import android.view.MotionEvent;
 
 import android.widget.Button;
 
+import android.util.Log;
+
 import com.macroyau.blue2serial.BluetoothDeviceListDialog;
 import com.macroyau.blue2serial.BluetoothSerial;
 import com.macroyau.blue2serial.BluetoothSerialListener;
@@ -36,16 +38,11 @@ public class TerminalActivity extends AppCompatActivity
 
     private static final int REQUEST_ENABLE_BLUETOOTH = 1;
 
-    private static final int ELM327_STATE_INIT       = 1;
-    private static final int ELM327_STATE_SET_HEADER = 2;
-    private static final int ELM327_STATE_SET_FRAME  = 3;
-    private int state = ELM327_STATE_INIT;
+    private static final String myTAG = "ELM327Activity";
+    private boolean hasReceivedCAF0  = false;
+    private boolean hasReceivedSH0B4 = false;
 
     private BluetoothSerial bluetoothSerial;
-
-//    private ScrollView svTerminal;
-//    private TextView tvTerminal;
-//    private EditText etSend;
 
     private MenuItem actionConnect, actionDisconnect;
 
@@ -53,33 +50,16 @@ public class TerminalActivity extends AppCompatActivity
 
     private Button forwardButton;
     private Button backwardButton;
-
+    private Button initButton;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_terminal);
 
         // Find UI views and set listeners
-//        svTerminal = (ScrollView) findViewById(R.id.terminal);
-//        tvTerminal = (TextView) findViewById(R.id.tv_terminal);
         forwardButton  = (Button) findViewById(R.id.forward_button);
         backwardButton = (Button) findViewById(R.id.backward_button);
-
-
-//        etSend = (EditText) findViewById(R.id.et_send);
-//        etSend.setOnEditorActionListener(new TextView.OnEditorActionListener() {
-//            @Override
-//            public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
-//                if (actionId == EditorInfo.IME_ACTION_SEND) {
-//                    String send = etSend.getText().toString().trim();
-//                    if (send.length() > 0) {
-//                        bluetoothSerial.write(send, crlf);
-//                        etSend.setText("");
-//                    }
-//                }
-//                return false;
-//            }
-//        });
+        initButton     = (Button) findViewById(R.id.init_elm327);
 
         // Create a new instance of BluetoothSerial
         bluetoothSerial = new BluetoothSerial(this, this);
@@ -91,12 +71,14 @@ public class TerminalActivity extends AppCompatActivity
                 switch(event.getAction()) {
                     case MotionEvent.ACTION_DOWN:
 
-                        bluetoothSerial.write("30 01 00", crlf);
-                        forwardButton.setBackgroundColor(Color.GREEN);
+                        bluetoothSerial.write("00 01 00 00 00 00 00", crlf);
+                        forwardButton.setBackgroundColor(Color.CYAN);
+                        Log.e(myTAG, "Forward pressed");
                         return true;
                     case MotionEvent.ACTION_UP:
-                        bluetoothSerial.write("30 00 00", crlf);
+                        bluetoothSerial.write("00 00 00 00 00 00 00", crlf);
                         forwardButton.setBackgroundColor(Color.RED);
+                        Log.e(myTAG, "Forward released");
                         return true;
                 }
                 return false;
@@ -109,12 +91,34 @@ public class TerminalActivity extends AppCompatActivity
                 switch(event.getAction()) {
                     case MotionEvent.ACTION_DOWN:
 
-                        bluetoothSerial.write("30 00 01", crlf);
+                        bluetoothSerial.write("00 00 01 00 00 00 00", crlf);
                         backwardButton.setBackgroundColor(Color.CYAN);
+                        Log.e(myTAG, "Backword pressed");
                         return true;
                     case MotionEvent.ACTION_UP:
-                        bluetoothSerial.write("30 00 00", crlf);
-                        backwardButton.setBackgroundColor(Color.MAGENTA);
+                        bluetoothSerial.write("00 00 00 00 00 00 00", crlf);
+                        backwardButton.setBackgroundColor(Color.RED);
+                        Log.e(myTAG, "Backword released");
+                        return true;
+                }
+                return false;
+            }
+        });
+
+        initButton.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                switch(event.getAction()) {
+                    case MotionEvent.ACTION_DOWN:
+
+                        bluetoothSerial.write("AT CAF0", crlf);
+                        initButton.setBackgroundColor(Color.GRAY);
+                        Log.e(myTAG, "Init pressed");
+                        return true;
+                    case MotionEvent.ACTION_UP:
+                        bluetoothSerial.write("ATSH0B4", crlf);
+//                        initButton.setBackgroundColor(Color.YELLOW);
+                        Log.e(myTAG, "Init released");
                         return true;
                 }
                 return false;
@@ -139,8 +143,6 @@ public class TerminalActivity extends AppCompatActivity
         if (bluetoothSerial.checkBluetooth() && bluetoothSerial.isBluetoothEnabled()) {
             if (!bluetoothSerial.isConnected()) {
                 bluetoothSerial.start();
-                bluetoothSerial.write("AT CAF0", crlf);
-                state = ELM327_STATE_SET_HEADER;
             }
         }
     }
@@ -215,8 +217,6 @@ public class TerminalActivity extends AppCompatActivity
                 // Set up Bluetooth serial port when Bluetooth adapter is turned on
                 if (resultCode == Activity.RESULT_OK) {
                     bluetoothSerial.setup();
-                    bluetoothSerial.write("AT CAF0", crlf);
-                    state = ELM327_STATE_SET_HEADER;
                 }
                 break;
         }
@@ -241,6 +241,7 @@ public class TerminalActivity extends AppCompatActivity
                 break;
             default:
                 subtitle = getString(R.string.status_disconnected);
+                initButton.setBackgroundColor(Color.GRAY);
                 break;
         }
 
@@ -300,26 +301,23 @@ public class TerminalActivity extends AppCompatActivity
 
     @Override
     public void onBluetoothSerialRead(String message) {
-        // Print the incoming message on the terminal screen
-//        tvTerminal.append(getString(R.string.terminal_message_template,
-//                bluetoothSerial.getConnectedDeviceName(),
-//                message));
-//        svTerminal.post(scrollTerminalToBottom);
-        if (state == ELM327_STATE_SET_HEADER)
-        {
-            bluetoothSerial.write("ATSH789", crlf);
-            state = ELM327_STATE_SET_FRAME;
+        Log.e(myTAG, "RECEIVED :: " + message);
+        if (message.startsWith("AT CAF0")) {
+            Log.e(myTAG, "Got CAF0 ");
+            hasReceivedCAF0  = true;
+        } else if (message.startsWith("ATSH0B4")) {
+            Log.e(myTAG, "Got SH0B4 ");
+            hasReceivedSH0B4 = true;
         }
 
+        if ((hasReceivedCAF0 == true) && (hasReceivedSH0B4 == true)) {
+                initButton.setBackgroundColor(Color.GREEN);
+                Log.e(myTAG, "Init succeeded");
+        }
     }
 
     @Override
     public void onBluetoothSerialWrite(String message) {
-        // Print the outgoing message on the terminal screen
-//        tvTerminal.append(getString(R.string.terminal_message_template,
-//                bluetoothSerial.getLocalAdapterName(),
-//                message));
-//        svTerminal.post(scrollTerminalToBottom);
     }
 
     /* Implementation of BluetoothDeviceListDialog.OnDeviceSelectedListener */
@@ -335,8 +333,6 @@ public class TerminalActivity extends AppCompatActivity
     private final Runnable scrollTerminalToBottom = new Runnable() {
         @Override
         public void run() {
-            // Scroll the terminal screen to the bottom
-//            svTerminal.fullScroll(ScrollView.FOCUS_DOWN);
         }
     };
 
