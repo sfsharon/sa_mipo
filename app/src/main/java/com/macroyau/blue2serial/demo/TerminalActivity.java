@@ -117,7 +117,6 @@ public class TerminalActivity extends AppCompatActivity
                         return true;
                     case MotionEvent.ACTION_UP:
                         bluetoothSerial.write("ATSH0B4", crlf);
-//                        initButton.setBackgroundColor(Color.YELLOW);
                         Log.e(myTAG, "Init released");
                         return true;
                 }
@@ -242,6 +241,8 @@ public class TerminalActivity extends AppCompatActivity
             default:
                 subtitle = getString(R.string.status_disconnected);
                 initButton.setBackgroundColor(Color.GRAY);
+				 hasReceivedCAF0  = false;
+                 hasReceivedSH0B4 = false;
                 break;
         }
 
