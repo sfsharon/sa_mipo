@@ -12,6 +12,8 @@ import android.support.v7.app.AppCompatActivity;
 import android.view.KeyEvent;
 import android.view.Menu;
 
+import android.os.Handler;
+
 import android.view.MenuItem;
 import android.view.inputmethod.EditorInfo;
 import android.widget.EditText;
@@ -42,6 +44,9 @@ public class TerminalActivity extends AppCompatActivity
     private boolean hasReceivedCAF0  = false;
     private boolean hasReceivedSH0B4 = false;
 
+    private Handler handler;
+    private Runnable runnableCode;
+
     private BluetoothSerial bluetoothSerial;
 
     private MenuItem actionConnect, actionDisconnect;
@@ -64,6 +69,22 @@ public class TerminalActivity extends AppCompatActivity
         // Create a new instance of BluetoothSerial
         bluetoothSerial = new BluetoothSerial(this, this);
 
+        // Create the Handler object (on the main thread by default)
+        handler = new Handler();
+
+        // Define the code block to be executed
+        runnableCode = new Runnable() {
+            @Override
+            public void run() {
+                // Do something here on the main thread
+                Log.e(myTAG, "Periodic Called on main thread");
+                // Repeat this the same runnable code block again another 2 seconds
+                // 'this' is referencing the Runnable object
+                handler.postDelayed(this, 2000);
+            }
+        };
+        // Start the initial runnable task by posting through the handler
+        handler.post(runnableCode);
 
         forwardButton.setOnTouchListener(new View.OnTouchListener() {
             @Override
@@ -83,7 +104,7 @@ public class TerminalActivity extends AppCompatActivity
                 }
                 return false;
             }
-        });
+        });  // forwardButton
 
         backwardButton.setOnTouchListener(new View.OnTouchListener() {
             @Override
@@ -103,7 +124,7 @@ public class TerminalActivity extends AppCompatActivity
                 }
                 return false;
             }
-        });
+        }); // backwardButton
 
         initButton.setOnTouchListener(new View.OnTouchListener() {
             @Override
@@ -122,7 +143,9 @@ public class TerminalActivity extends AppCompatActivity
                 }
                 return false;
             }
-        });
+        });  // initButton
+
+
 
     }
 
