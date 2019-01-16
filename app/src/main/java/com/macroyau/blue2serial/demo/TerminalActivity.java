@@ -35,17 +35,25 @@ public class TerminalActivity extends AppCompatActivity
 
     private static final int REQUEST_ENABLE_BLUETOOTH = 1;
 
+    // ELM327 data
     private static final String myTAG = "ELM327Activity";
-    private static final int ELM327_STATE_INIT              = 1;
-    private static final int ELM327_STATE_FORWARD_PRESSED   = 2;
-    private static final int ELM327_STATE_FORWARD_RELEASED  = 3;
-    private static final int ELM327_STATE_BACKWORD_PRESSED  = 4;
-    private static final int ELM327_STATE_BACKWORD_RELEASED = 5;
-    private int curr_elm327_state = ELM327_STATE_INIT;
-    private int prev_elm327_state = ELM327_STATE_INIT;
+    private static final int ELM327_PERIOD_MILLISECOND = 200;
+    private static final int ELM327_STATE_INIT              = 0;
+    private static final int ELM327_STATE_SEND_CAF0         = 1;
+    private static final int ELM327_STATE_SEND_SH0B4        = 2;
+    private static final int ELM327_STATE_WAITING_BUTTONS   = 3;
+    private static final int ELM327_STATE_FORWARD_PRESSED   = 4;
+    private static final int ELM327_STATE_FORWARD_RELEASED  = 5;
+    private static final int ELM327_STATE_BACKWORD_PRESSED  = 6;
+    private static final int ELM327_STATE_BACKWORD_RELEASED = 7;
 
-    private boolean hasReceivedCAF0  = false;
-    private boolean hasReceivedSH0B4 = false;
+    // Initialize to current state as SEND_CAF0, so this will be the first command to be sent
+	// Set previous to init, so that oggle will occur, and SH0B4 will be sent next,
+	// and again back to first stage, until first button is pressed
+    private int prev_elm327_state = ELM327_STATE_INIT;
+    private int curr_elm327_state = ELM327_STATE_SEND_CAF0;
+
+
     private Handler handler;
     private Runnable runnableCode;
 
@@ -58,7 +66,6 @@ public class TerminalActivity extends AppCompatActivity
     // My Buttons
     private Button forwardButton;
     private Button backwardButton;
-    private Button initButton;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -68,7 +75,6 @@ public class TerminalActivity extends AppCompatActivity
         // Find UI views and set listeners
         forwardButton  = (Button) findViewById(R.id.forward_button);
         backwardButton = (Button) findViewById(R.id.backward_button);
-        initButton     = (Button) findViewById(R.id.init_elm327);
 
         // Create a new instance of BluetoothSerial
         bluetoothSerial = new BluetoothSerial(this, this);
@@ -81,28 +87,43 @@ public class TerminalActivity extends AppCompatActivity
             @Override
             public void run() {
                 // Do something here on the main thread
-                Log.e(myTAG, "Periodic Called on main thread");
                 // Repeat this the same runnable code block again another 2 seconds
                 // 'this' is referencing the Runnable object
-                handler.postDelayed(this, 300);
+                handler.postDelayed(this, ELM327_PERIOD_MILLISECOND);
 
+                // Send repeat message if no change in state
                 if (prev_elm327_state == curr_elm327_state) {
                     bluetoothSerial.write("\n\r", crlf);   // Repeat the last message transmitted
                 }
+                // Initial Step : Send toggle the CAF0 and SH0B4 commands until button is pressed.
+                // Control in open loop - assume that sometime the elm327 will accept the two commands
                 else {
-                    if (curr_elm327_state == ELM327_STATE_FORWARD_PRESSED) {
-                        bluetoothSerial.write("00 01 00 00 00 00 00", crlf);
-                        Log.e(myTAG, "Periodic : Forward Pressed");
-                    } else if (curr_elm327_state == ELM327_STATE_BACKWORD_PRESSED) {
-                        bluetoothSerial.write("00 00 01 00 00 00 00", crlf);
-                        Log.e(myTAG, "Periodic : Backward Pressed");
-                    } else if ((curr_elm327_state == ELM327_STATE_BACKWORD_RELEASED) ||
-                            (curr_elm327_state == ELM327_STATE_FORWARD_RELEASED)) {
-
-                        bluetoothSerial.write("00 00 00 00 00 00 00", crlf);
-                        Log.e(myTAG, "Periodic : Button Released");
+                    if (curr_elm327_state == ELM327_STATE_SEND_CAF0 ) {
+                        bluetoothSerial.write("AT CAF0", crlf);
+                        prev_elm327_state = ELM327_STATE_INIT;
+                        curr_elm327_state = ELM327_STATE_SEND_SH0B4;
+                        Log.e(myTAG, "Periodic : Sent CAF0");
+                    } else if (curr_elm327_state == ELM327_STATE_SEND_SH0B4) {
+                        bluetoothSerial.write("ATSH0B4", crlf);
+                        prev_elm327_state = ELM327_STATE_INIT;
+                        curr_elm327_state = ELM327_STATE_SEND_CAF0;
+                        Log.e(myTAG, "Periodic : Sent ATSH0B4");
                     }
-                    prev_elm327_state = curr_elm327_state;
+                    // Next Step : Two command button logic
+                    else {
+                        if (curr_elm327_state == ELM327_STATE_FORWARD_PRESSED) {
+                            bluetoothSerial.write("00 01 00 00 00 00 00", crlf);
+                            Log.e(myTAG, "Periodic : Forward Pressed");
+                        } else if (curr_elm327_state == ELM327_STATE_BACKWORD_PRESSED) {
+                            bluetoothSerial.write("00 00 01 00 00 00 00", crlf);
+                            Log.e(myTAG, "Periodic : Backward Pressed");
+                        } else if ((curr_elm327_state == ELM327_STATE_BACKWORD_RELEASED) ||
+                                (curr_elm327_state == ELM327_STATE_FORWARD_RELEASED)) {
+                            bluetoothSerial.write("00 00 00 00 00 00 00", crlf);
+                            Log.e(myTAG, "Periodic : Button Released");
+                        }
+                        prev_elm327_state = curr_elm327_state;  // Only match prev to curr when the initial step is over
+                    }
                 } // if elm327_State has changed
             }
         };
@@ -148,25 +169,6 @@ public class TerminalActivity extends AppCompatActivity
                 return false;
             }
         }); // backwardButton
-
-        initButton.setOnTouchListener(new View.OnTouchListener() {
-            @Override
-            public boolean onTouch(View v, MotionEvent event) {
-                switch(event.getAction()) {
-                    case MotionEvent.ACTION_DOWN:
-
-                        bluetoothSerial.write("AT CAF0", crlf);
-                        initButton.setBackgroundColor(Color.GRAY);
-                        Log.e(myTAG, "Init pressed");
-                        return true;
-                    case MotionEvent.ACTION_UP:
-                        bluetoothSerial.write("ATSH0B4", crlf);
-                        Log.e(myTAG, "Init released");
-                        return true;
-                }
-                return false;
-            }
-        });  // initButton
     } // onCreate
 
     @Override
@@ -283,10 +285,11 @@ public class TerminalActivity extends AppCompatActivity
                 break;
             default:
                 subtitle = getString(R.string.status_disconnected);
-                initButton.setBackgroundColor(Color.GRAY);
-				 hasReceivedCAF0  = false;
-                 hasReceivedSH0B4 = false;
-                 curr_elm327_state = ELM327_STATE_INIT;
+				// Bring back to init state
+                forwardButton.setBackgroundColor(Color.GRAY);
+                backwardButton.setBackgroundColor(Color.GRAY);
+                prev_elm327_state = ELM327_STATE_INIT;
+                curr_elm327_state = ELM327_STATE_SEND_CAF0;
                  Log.e(myTAG, "updateBluetoothState :  disconnected");
                 break;
         }
@@ -326,7 +329,11 @@ public class TerminalActivity extends AppCompatActivity
     public void onBluetoothDisabled() {
         Intent enableBluetooth = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
         startActivityForResult(enableBluetooth, REQUEST_ENABLE_BLUETOOTH);
-        curr_elm327_state = ELM327_STATE_INIT;
+        // Bring back to init state
+        forwardButton.setBackgroundColor(Color.GRAY);
+        backwardButton.setBackgroundColor(Color.GRAY);
+        prev_elm327_state = ELM327_STATE_INIT;
+        curr_elm327_state = ELM327_STATE_SEND_CAF0;
         Log.e(myTAG, "onBluetoothDisabled");
     }
 
@@ -334,7 +341,11 @@ public class TerminalActivity extends AppCompatActivity
     public void onBluetoothDeviceDisconnected() {
         invalidateOptionsMenu();
         updateBluetoothState();
-        curr_elm327_state = ELM327_STATE_INIT;
+        // Bring back to init state
+        forwardButton.setBackgroundColor(Color.GRAY);
+        backwardButton.setBackgroundColor(Color.GRAY);
+        prev_elm327_state = ELM327_STATE_INIT;
+        curr_elm327_state = ELM327_STATE_SEND_CAF0;
         Log.e(myTAG, "onBluetoothDeviceDisconnected");
     }
 
@@ -352,18 +363,6 @@ public class TerminalActivity extends AppCompatActivity
     @Override
     public void onBluetoothSerialRead(String message) {
         Log.e(myTAG, "RECEIVED :: " + message);
-        if (message.startsWith("AT CAF0")) {
-            Log.e(myTAG, "Got CAF0 ");
-            hasReceivedCAF0  = true;
-        } else if (message.startsWith("ATSH0B4")) {
-            Log.e(myTAG, "Got SH0B4 ");
-            hasReceivedSH0B4 = true;
-        }
-
-        if ((hasReceivedCAF0 == true) && (hasReceivedSH0B4 == true)) {
-                initButton.setBackgroundColor(Color.GREEN);
-                Log.e(myTAG, "Init succeeded");
-        }
     }
 
     @Override

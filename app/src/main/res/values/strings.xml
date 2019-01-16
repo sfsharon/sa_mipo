@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <string name="app_name">ATCIPA</string>
+    <string name="app_name">SA-MIPO</string>
 
     <string name="status_disconnected">Disconnected</string>
     <string name="status_connecting">Connecting&#8230;</string>
