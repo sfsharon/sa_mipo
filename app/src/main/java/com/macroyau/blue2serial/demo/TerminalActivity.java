@@ -9,16 +9,11 @@ import android.graphics.Color;
 import android.os.Bundle;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
-import android.view.KeyEvent;
 import android.view.Menu;
 
 import android.os.Handler;
 
 import android.view.MenuItem;
-import android.view.inputmethod.EditorInfo;
-import android.widget.EditText;
-import android.widget.ScrollView;
-import android.widget.TextView;
 import android.view.View;
 import android.view.MotionEvent;
 
@@ -41,9 +36,16 @@ public class TerminalActivity extends AppCompatActivity
     private static final int REQUEST_ENABLE_BLUETOOTH = 1;
 
     private static final String myTAG = "ELM327Activity";
+    private static final int ELM327_STATE_INIT              = 1;
+    private static final int ELM327_STATE_FORWARD_PRESSED   = 2;
+    private static final int ELM327_STATE_FORWARD_RELEASED  = 3;
+    private static final int ELM327_STATE_BACKWORD_PRESSED  = 4;
+    private static final int ELM327_STATE_BACKWORD_RELEASED = 5;
+    private int curr_elm327_state = ELM327_STATE_INIT;
+    private int prev_elm327_state = ELM327_STATE_INIT;
+
     private boolean hasReceivedCAF0  = false;
     private boolean hasReceivedSH0B4 = false;
-
     private Handler handler;
     private Runnable runnableCode;
 
@@ -53,9 +55,11 @@ public class TerminalActivity extends AppCompatActivity
 
     private boolean crlf = true;
 
+    // My Buttons
     private Button forwardButton;
     private Button backwardButton;
     private Button initButton;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -80,7 +84,26 @@ public class TerminalActivity extends AppCompatActivity
                 Log.e(myTAG, "Periodic Called on main thread");
                 // Repeat this the same runnable code block again another 2 seconds
                 // 'this' is referencing the Runnable object
-                handler.postDelayed(this, 2000);
+                handler.postDelayed(this, 300);
+
+                if (prev_elm327_state == curr_elm327_state) {
+                    bluetoothSerial.write("\n\r", crlf);   // Repeat the last message transmitted
+                }
+                else {
+                    if (curr_elm327_state == ELM327_STATE_FORWARD_PRESSED) {
+                        bluetoothSerial.write("00 01 00 00 00 00 00", crlf);
+                        Log.e(myTAG, "Periodic : Forward Pressed");
+                    } else if (curr_elm327_state == ELM327_STATE_BACKWORD_PRESSED) {
+                        bluetoothSerial.write("00 00 01 00 00 00 00", crlf);
+                        Log.e(myTAG, "Periodic : Backward Pressed");
+                    } else if ((curr_elm327_state == ELM327_STATE_BACKWORD_RELEASED) ||
+                            (curr_elm327_state == ELM327_STATE_FORWARD_RELEASED)) {
+
+                        bluetoothSerial.write("00 00 00 00 00 00 00", crlf);
+                        Log.e(myTAG, "Periodic : Button Released");
+                    }
+                    prev_elm327_state = curr_elm327_state;
+                } // if elm327_State has changed
             }
         };
         // Start the initial runnable task by posting through the handler
@@ -92,14 +115,14 @@ public class TerminalActivity extends AppCompatActivity
                 switch(event.getAction()) {
                     case MotionEvent.ACTION_DOWN:
 
-                        bluetoothSerial.write("00 01 00 00 00 00 00", crlf);
                         forwardButton.setBackgroundColor(Color.CYAN);
-                        Log.e(myTAG, "Forward pressed");
+                        Log.e(myTAG, "setOnTouchListener : Forward pressed");
+                        curr_elm327_state = ELM327_STATE_FORWARD_PRESSED;
                         return true;
                     case MotionEvent.ACTION_UP:
-                        bluetoothSerial.write("00 00 00 00 00 00 00", crlf);
                         forwardButton.setBackgroundColor(Color.RED);
-                        Log.e(myTAG, "Forward released");
+                        Log.e(myTAG, "setOnTouchListener : Forward released");
+                        curr_elm327_state = ELM327_STATE_FORWARD_RELEASED;
                         return true;
                 }
                 return false;
@@ -112,14 +135,14 @@ public class TerminalActivity extends AppCompatActivity
                 switch(event.getAction()) {
                     case MotionEvent.ACTION_DOWN:
 
-                        bluetoothSerial.write("00 00 01 00 00 00 00", crlf);
                         backwardButton.setBackgroundColor(Color.CYAN);
-                        Log.e(myTAG, "Backword pressed");
+                        Log.e(myTAG, "setOnTouchListener: Backword pressed");
+                        curr_elm327_state = ELM327_STATE_BACKWORD_PRESSED;
                         return true;
                     case MotionEvent.ACTION_UP:
-                        bluetoothSerial.write("00 00 00 00 00 00 00", crlf);
                         backwardButton.setBackgroundColor(Color.RED);
-                        Log.e(myTAG, "Backword released");
+                        Log.e(myTAG, "setOnTouchListener : Backword released");
+                        curr_elm327_state = ELM327_STATE_BACKWORD_RELEASED;
                         return true;
                 }
                 return false;
@@ -144,10 +167,7 @@ public class TerminalActivity extends AppCompatActivity
                 return false;
             }
         });  // initButton
-
-
-
-    }
+    } // onCreate
 
     @Override
     protected void onStart() {
@@ -266,6 +286,8 @@ public class TerminalActivity extends AppCompatActivity
                 initButton.setBackgroundColor(Color.GRAY);
 				 hasReceivedCAF0  = false;
                  hasReceivedSH0B4 = false;
+                 curr_elm327_state = ELM327_STATE_INIT;
+                 Log.e(myTAG, "updateBluetoothState :  disconnected");
                 break;
         }
 
@@ -304,12 +326,16 @@ public class TerminalActivity extends AppCompatActivity
     public void onBluetoothDisabled() {
         Intent enableBluetooth = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
         startActivityForResult(enableBluetooth, REQUEST_ENABLE_BLUETOOTH);
+        curr_elm327_state = ELM327_STATE_INIT;
+        Log.e(myTAG, "onBluetoothDisabled");
     }
 
     @Override
     public void onBluetoothDeviceDisconnected() {
         invalidateOptionsMenu();
         updateBluetoothState();
+        curr_elm327_state = ELM327_STATE_INIT;
+        Log.e(myTAG, "onBluetoothDeviceDisconnected");
     }
 
     @Override
