@@ -224,11 +224,11 @@ public class TerminalActivity extends AppCompatActivity
         } else if (id == R.id.action_disconnect) {
             bluetoothSerial.stop();
             return true;
-        } else if (id == R.id.action_crlf) {
+        } /* else if (id == R.id.action_crlf) {
             crlf = !item.isChecked();
             item.setChecked(crlf);
             return true;
-        }
+        }*/
 
         return super.onOptionsItemSelected(item);
     }
