@@ -21,6 +21,11 @@ import android.widget.Button;
 
 import android.util.Log;
 
+// GPS Location example taken from :
+// https://stackoverflow.com/questions/37373817/android-get-gps-coordinates-and-location
+import android.location.LocationManager;
+import android.location.LocationListener;
+
 import com.macroyau.blue2serial.BluetoothDeviceListDialog;
 import com.macroyau.blue2serial.BluetoothSerial;
 import com.macroyau.blue2serial.BluetoothSerialListener;
@@ -66,6 +71,12 @@ public class TerminalActivity extends AppCompatActivity
     // My Buttons
     private Button forwardButton;
     private Button backwardButton;
+
+    // GPS Objects
+    private LocationManager locationManager;
+    private LocationListener locationListener;
+    private double lat;
+    private double lng;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
