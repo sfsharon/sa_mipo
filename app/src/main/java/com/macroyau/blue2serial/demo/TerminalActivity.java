@@ -78,6 +78,9 @@ public class TerminalActivity extends AppCompatActivity
 
     private BluetoothSerial bluetoothSerial;
 
+    private String mLastConnectedDeviceName     = "None";
+    private String mLastConnectedDeviceAddress  = "None";
+
     private MenuItem actionConnect, actionDisconnect;
 
     private boolean crlf = true;
@@ -120,6 +123,14 @@ public class TerminalActivity extends AppCompatActivity
                 // Repeat this the same runnable code block again another 2 seconds
                 // 'this' is referencing the Runnable object
                 handler.postDelayed(this, ELM327_PERIOD_MILLISECOND);
+
+                // Reconnect mechanism
+                if ((bluetoothSerial.getState() == BluetoothSerial.STATE_DISCONNECTED) &&
+                        (mLastConnectedDeviceAddress != "None"))
+                {
+                    Log.e(myTAG, "Got disconnected. Trying to reconnect ");
+                    bluetoothSerial.connect(mLastConnectedDeviceAddress);
+                }
 
                 // Send repeat message if no change in state
                 if (prev_elm327_state == curr_elm327_state) {
@@ -207,12 +218,12 @@ public class TerminalActivity extends AppCompatActivity
             locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 0, locationListenerGPS);
             isLocationEnabled();
             Log.e(myTAG, "GPS connected succefully");
-            Toast.makeText(mContext, "GPS connected succefully",Toast.LENGTH_LONG).show();
+//            Toast.makeText(mContext, "GPS connected succefully",Toast.LENGTH_LONG).show();
         }
         else
         {
             Log.e(myTAG, "GPS permissions Error");
-            Toast.makeText(mContext, "GPS permissions Error",Toast.LENGTH_LONG).show();
+//            Toast.makeText(mContext, "GPS permissions Error",Toast.LENGTH_LONG).show();
             return;
         }
 
@@ -224,7 +235,7 @@ public class TerminalActivity extends AppCompatActivity
             double latitude=location.getLatitude();
             double longitude=location.getLongitude();
             String msg="GPS : Latitude: " + latitude + "Longitude: "+longitude;
-            Toast.makeText(mContext, msg,Toast.LENGTH_LONG).show();
+//            Toast.makeText(mContext, msg,Toast.LENGTH_LONG).show();
             Log.e(myTAG, msg);
         }
         @Override
@@ -466,6 +477,10 @@ public class TerminalActivity extends AppCompatActivity
     public void onBluetoothDeviceConnected(String name, String address) {
         invalidateOptionsMenu();
         updateBluetoothState();
+		// Save the name and address of bluetooth device for automatic reconnect
+        mLastConnectedDeviceName = bluetoothSerial.getConnectedDeviceName();
+        mLastConnectedDeviceAddress = bluetoothSerial.getConnectedDeviceAddress();
+        Log.e(myTAG, "Sharon : onBluetoothDeviceConnected");
     }
 
     @Override
