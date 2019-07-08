@@ -1,14 +1,24 @@
+/**
+ * Sharon Fraiman
+ * Based on :
+ * - BLuetooth to serial library by Macro Yau :  https://github.com/MacroYau/Blue2Serial
+ * - GPS location code : https://stackoverflow.com/questions/42218419/how-do-i-implement-the-locationlistener
+ */
+
 package com.macroyau.blue2serial.demo;
 
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v4.content.PermissionChecker;
+import android.Manifest;
 import android.view.Menu;
 
 import android.os.Handler;
@@ -18,6 +28,7 @@ import android.view.View;
 import android.view.MotionEvent;
 
 import android.widget.Button;
+import android.widget.Toast;
 
 import android.util.Log;
 
@@ -25,6 +36,8 @@ import android.util.Log;
 // https://stackoverflow.com/questions/37373817/android-get-gps-coordinates-and-location
 import android.location.LocationManager;
 import android.location.LocationListener;
+
+import android.provider.Settings;
 
 import com.macroyau.blue2serial.BluetoothDeviceListDialog;
 import com.macroyau.blue2serial.BluetoothSerial;
@@ -74,14 +87,16 @@ public class TerminalActivity extends AppCompatActivity
 
     // GPS Objects
     private LocationManager locationManager;
-    private LocationListener locationListener;
-    private double lat;
-    private double lng;
+//    private double lat;
+//    private double lng;
+    Context mContext;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_terminal);
+
+        mContext = this;
 
         // Find UI views and set listeners
         forwardButton  = (Button) findViewById(R.id.forward_button);
@@ -180,7 +195,49 @@ public class TerminalActivity extends AppCompatActivity
                 return false;
             }
         }); // backwardButton
+
+        // GPS Handling initialization
+        locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+        if (PermissionChecker.checkSelfPermission(mContext, Manifest.permission.ACCESS_FINE_LOCATION) == PermissionChecker.PERMISSION_GRANTED)
+        {
+            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 0, locationListenerGPS);
+            isLocationEnabled();
+            Log.e(myTAG, "Sharon : Succeeded");
+            Toast.makeText(mContext, "Sharon : Succeeded",Toast.LENGTH_LONG).show();
+        }
+        else
+        {
+            Log.e(myTAG, "Sharon : No GPS permissions");
+            Toast.makeText(mContext, "Sharon : No GPS permissions",Toast.LENGTH_LONG).show();
+            return;
+        }
+
     } // onCreate
+
+    LocationListener locationListenerGPS=new LocationListener() {
+        @Override
+        public void onLocationChanged(android.location.Location location) {
+            double latitude=location.getLatitude();
+            double longitude=location.getLongitude();
+            String msg="Sharon GPS : New Latitude: " + latitude + "New Longitude: "+longitude;
+            Toast.makeText(mContext, msg,Toast.LENGTH_LONG).show();
+            Log.e(myTAG, msg);
+        }
+        @Override
+        public void onStatusChanged(String provider, int status, Bundle extras) {
+
+        }
+
+        @Override
+        public void onProviderEnabled(String provider) {
+
+        }
+
+        @Override
+        public void onProviderDisabled(String provider) {
+
+        }
+    };
 
     @Override
     protected void onStart() {
@@ -199,6 +256,42 @@ public class TerminalActivity extends AppCompatActivity
             if (!bluetoothSerial.isConnected()) {
                 bluetoothSerial.start();
             }
+        }
+
+        isLocationEnabled();
+    }
+
+    private void isLocationEnabled() {
+
+        if(!locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)){
+            AlertDialog.Builder alertDialog=new AlertDialog.Builder(mContext);
+            alertDialog.setTitle("Enable Location");
+            alertDialog.setMessage("Your locations setting is not enabled. Please enabled it in settings menu.");
+            alertDialog.setPositiveButton("Location Settings", new DialogInterface.OnClickListener(){
+                public void onClick(DialogInterface dialog, int which){
+                    Intent intent=new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
+                    startActivity(intent);
+                }
+            });
+            alertDialog.setNegativeButton("Cancel", new DialogInterface.OnClickListener(){
+                public void onClick(DialogInterface dialog, int which){
+                    dialog.cancel();
+                }
+            });
+            AlertDialog alert=alertDialog.create();
+            alert.show();
+        }
+        else{
+//            AlertDialog.Builder alertDialog=new AlertDialog.Builder(mContext);
+//            alertDialog.setTitle("Confirm Location");
+//            alertDialog.setMessage("Your Location is enabled, please enjoy");
+//            alertDialog.setNegativeButton("Back to interface",new DialogInterface.OnClickListener(){
+//                public void onClick(DialogInterface dialog, int which){
+//                    dialog.cancel();
+//                }
+//            });
+//            AlertDialog alert=alertDialog.create();
+//            alert.show();
         }
     }
 
