@@ -27,6 +27,7 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.MotionEvent;
 
+import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.Toast;
 
@@ -95,6 +96,9 @@ public class TerminalActivity extends AppCompatActivity
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_terminal);
+
+        // Keep the window always on
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         mContext = this;
 
@@ -202,13 +206,13 @@ public class TerminalActivity extends AppCompatActivity
         {
             locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 0, locationListenerGPS);
             isLocationEnabled();
-            Log.e(myTAG, "Sharon : Succeeded");
-            Toast.makeText(mContext, "Sharon : Succeeded",Toast.LENGTH_LONG).show();
+            Log.e(myTAG, "GPS connected succefully");
+            Toast.makeText(mContext, "GPS connected succefully",Toast.LENGTH_LONG).show();
         }
         else
         {
-            Log.e(myTAG, "Sharon : No GPS permissions");
-            Toast.makeText(mContext, "Sharon : No GPS permissions",Toast.LENGTH_LONG).show();
+            Log.e(myTAG, "GPS permissions Error");
+            Toast.makeText(mContext, "GPS permissions Error",Toast.LENGTH_LONG).show();
             return;
         }
 
@@ -219,7 +223,7 @@ public class TerminalActivity extends AppCompatActivity
         public void onLocationChanged(android.location.Location location) {
             double latitude=location.getLatitude();
             double longitude=location.getLongitude();
-            String msg="Sharon GPS : New Latitude: " + latitude + "New Longitude: "+longitude;
+            String msg="GPS : Latitude: " + latitude + "Longitude: "+longitude;
             Toast.makeText(mContext, msg,Toast.LENGTH_LONG).show();
             Log.e(myTAG, msg);
         }
