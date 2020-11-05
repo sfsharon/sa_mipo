@@ -75,14 +75,11 @@ public class TerminalActivity extends AppCompatActivity
     private int prev_elm327_state = ELM327_STATE_INIT;
     private int curr_elm327_state = ELM327_STATE_SEND_CAF0;
     // TODO Move to enum
-    //        CeDVIR_e_RC_ModeOff         (0) 000 //Always send PrkCmd – NoAction
-    //        CeDVIR_e_RC_ParkIn          (1) 001 //When pressing on a button – Continue Parking
-    //        CeDVIR_e_RC_ParkOut         (2) 010
-    //        CeDVIR_e_RC_ParkPause       (3) 011 //When releasing button – PauseParking
 
-    private int CeDVIR_e_RC_ModeOff = 0;
-    private int CeDVIR_e_RC_ParkIn = 1;
-    private int CeDVIR_e_RC_ParkPause = 3;
+    private int CePKAR_e_VKM_CmdNoAction = 0;
+    private int CePKAR_e_VKM_CmdPauseParking = 2;
+    private int CePKAR_e_VKM_CmdContinueParking = 3;
+
 
     private Handler handler;
     private Runnable runnableCode;
@@ -195,22 +192,22 @@ public class TerminalActivity extends AppCompatActivity
                     // Next Step : Two command button logic
                     else {
                         if (curr_elm327_state == ELM327_STATE_PARK_PRESSED) {
-                            mLastParkCmd = CeDVIR_e_RC_ParkIn;
+                            mLastParkCmd = CePKAR_e_VKM_CmdContinueParking;
                             canMsg = buildCanMsg(mLastParkCmd);
                             bluetoothSerial.write(canMsg, crlf);
                             Log.e(myTAG, "Periodic : Park Pressed");
                         } else if (curr_elm327_state == ELM327_STATE_RESET_PRESSED) {
-                            mLastParkCmd = CeDVIR_e_RC_ModeOff;
+                            mLastParkCmd = CePKAR_e_VKM_CmdNoAction;
                             canMsg = buildCanMsg(mLastParkCmd);
                             bluetoothSerial.write(canMsg, crlf);
                             Log.e(myTAG, "Periodic : Reset Pressed");
                         } else if (curr_elm327_state == ELM327_STATE_RESET_RELEASED) {
-                            mLastParkCmd = CeDVIR_e_RC_ModeOff;
+                            mLastParkCmd = CePKAR_e_VKM_CmdNoAction;
                             canMsg = buildCanMsg(mLastParkCmd);
                             bluetoothSerial.write(canMsg, crlf);
                             Log.e(myTAG, "Periodic : Reset Released");
                         } else if (curr_elm327_state == ELM327_STATE_PARK_RELEASED) {
-                            mLastParkCmd = CeDVIR_e_RC_ParkPause;
+                            mLastParkCmd = CePKAR_e_VKM_CmdPauseParking;
                             canMsg = buildCanMsg(mLastParkCmd);
                             bluetoothSerial.write(canMsg, crlf);
                             Log.e(myTAG, "Periodic : Park Released");
@@ -495,11 +492,11 @@ public class TerminalActivity extends AppCompatActivity
         //CePKAR_e_VKM_StatEntlNotGranted     (0) // Not Granted
         //CePKAR_e_VKM_StatEntlGranted        (1) // Granted
         //SuprRmtPrkVirtKeyPrkCmdAuth:
-        //        CeDVIR_e_RC_ModeOff         (0) 000 //Always send PrkCmd – NoAction
-        //        CeDVIR_e_RC_ParkIn          (1) 001 //When pressing on a button – Continue Parking
-        //        CeDVIR_e_RC_ParkOut         (2) 010
-        //        CeDVIR_e_RC_ParkPause       (3) 011 //When releasing button – PauseParking
-
+         //CePKAR_e_VKM_CmdNoAction            (0) //Always send PrkCmd – NoAction
+         //CePKAR_e_VKM_CmdInitiateParking        (1)
+         //CePKAR_e_VKM_CmdPauseParking      (2)  //When releasing button – PauseParking
+         //CePKAR_e_VKM_CmdContinueParking       (3) //When pressing on a button – Continue Parking
+         //CePKAR_e_VKM_CmdResumeParking          (4)
 
     }
 
