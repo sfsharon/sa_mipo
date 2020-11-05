@@ -29,7 +29,6 @@ import android.view.MotionEvent;
 
 import android.view.WindowManager;
 import android.widget.Button;
-import android.widget.Toast;
 
 import android.util.Log;
 
@@ -39,10 +38,13 @@ import android.location.LocationManager;
 import android.location.LocationListener;
 
 import android.provider.Settings;
+import android.widget.CompoundButton;
+import android.widget.Switch;
 
 import com.macroyau.blue2serial.BluetoothDeviceListDialog;
 import com.macroyau.blue2serial.BluetoothSerial;
 import com.macroyau.blue2serial.BluetoothSerialListener;
+import java.lang.String;
 
 /**
  * This is an example Bluetooth terminal application built using the Blue2Serial library.
@@ -59,19 +61,28 @@ public class TerminalActivity extends AppCompatActivity
     private static final int ELM327_PERIOD_MILLISECOND = 200;
     private static final int ELM327_STATE_INIT              = 0;
     private static final int ELM327_STATE_SEND_CAF0         = 1;
-    private static final int ELM327_STATE_SEND_SH0B4        = 2;
+
+    private static final int ELM327_STATE_SEND_SH_CAN_MSG_ID = 2; //ELM327_STATE_SEND_SH0B4
     private static final int ELM327_STATE_WAITING_BUTTONS   = 3;
-    private static final int ELM327_STATE_FORWARD_PRESSED   = 4;
-    private static final int ELM327_STATE_FORWARD_RELEASED  = 5;
-    private static final int ELM327_STATE_BACKWORD_PRESSED  = 6;
-    private static final int ELM327_STATE_BACKWORD_RELEASED = 7;
+    private static final int ELM327_STATE_PARK_PRESSED   = 4;
+    private static final int ELM327_STATE_PARK_RELEASED  = 5;
+    private static final int ELM327_STATE_RESET_PRESSED  = 6;
+    private static final int ELM327_STATE_RESET_RELEASED = 7;
 
     // Initialize to current state as SEND_CAF0, so this will be the first command to be sent
-	// Set previous to init, so that oggle will occur, and SH0B4 will be sent next,
+	// Set previous to init, so that oggle will occur, and [SH + CAN MSG ID] (previously was SH0B4) will be sent next,
 	// and again back to first stage, until first button is pressed
     private int prev_elm327_state = ELM327_STATE_INIT;
     private int curr_elm327_state = ELM327_STATE_SEND_CAF0;
+    // TODO Move to enum
+    //        CeDVIR_e_RC_ModeOff         (0) 000 //Always send PrkCmd – NoAction
+    //        CeDVIR_e_RC_ParkIn          (1) 001 //When pressing on a button – Continue Parking
+    //        CeDVIR_e_RC_ParkOut         (2) 010
+    //        CeDVIR_e_RC_ParkPause       (3) 011 //When releasing button – PauseParking
 
+    private int CeDVIR_e_RC_ModeOff = 0;
+    private int CeDVIR_e_RC_ParkIn = 1;
+    private int CeDVIR_e_RC_ParkPause = 3;
 
     private Handler handler;
     private Runnable runnableCode;
@@ -80,14 +91,24 @@ public class TerminalActivity extends AppCompatActivity
 
     private String mLastConnectedDeviceName     = "None";
     private String mLastConnectedDeviceAddress  = "None";
-
+    private int mLastMsgSent = 0;
+    /* In ARXML 23.23.156.4.2.2 CAN2 SrlDat92_Prtctd_MSG= = 0x255.
+ For demo we will use CAN 1 MSG Id = 0x292
+  */
+    private String CAN_MSG_ID = "292"; // "0B4";
     private MenuItem actionConnect, actionDisconnect;
 
     private boolean crlf = true;
 
     // My Buttons
-    private Button forwardButton;
-    private Button backwardButton;
+    private Button parkButton;
+    private Button resetButton;
+    private Switch grantedSwitch;
+    private Boolean mIsGranted = false;
+    private int mARC = 0;
+    private int mLastParkCmd = -1;  // -1 for none
+    private int CAN_MSG_LEN = 8;
+    private String[] mCanMsgToSend = new String[CAN_MSG_LEN];
 
     // GPS Objects
     private LocationManager locationManager;
@@ -106,9 +127,14 @@ public class TerminalActivity extends AppCompatActivity
         mContext = this;
 
         // Find UI views and set listeners
-        forwardButton  = (Button) findViewById(R.id.forward_button);
-        backwardButton = (Button) findViewById(R.id.backward_button);
+        parkButton = (Button) findViewById(R.id.park_button);
+        resetButton = (Button) findViewById(R.id.reset_button);
+        grantedSwitch = (Switch) findViewById(R.id.granted_switch);
 
+        for (int i = 0; i < 6 ; i++){
+            mCanMsgToSend[i] = "00";
+        }
+        mCanMsgToSend[6] = "01";
         // Create a new instance of BluetoothSerial
         bluetoothSerial = new BluetoothSerial(this, this);
 
@@ -119,8 +145,10 @@ public class TerminalActivity extends AppCompatActivity
         runnableCode = new Runnable() {
             @Override
             public void run() {
+                int tmp = 0;
+                String canMsg = "";
                 // Do something here on the main thread
-                // Repeat this the same runnable code block again another 2 seconds
+                // Repeat this the same runnable code block again another 200 milliseconds
                 // 'this' is referencing the Runnable object
                 handler.postDelayed(this, ELM327_PERIOD_MILLISECOND);
 
@@ -134,34 +162,59 @@ public class TerminalActivity extends AppCompatActivity
 
                 // Send repeat message if no change in state
                 if (prev_elm327_state == curr_elm327_state) {
-                    bluetoothSerial.write("\n\r", crlf);   // Repeat the last message transmitted
+                    // Send last message but increment ACR"
+                    // Convert Number to string bit.
+
+
+
+                    if (mLastParkCmd == -1){
+                        bluetoothSerial.write("\n\r", crlf);   // Repeat the last message transmitted
+                    }else {
+                        canMsg = buildCanMsg(mLastParkCmd);
+                        //bluetoothSerial.write("00 00 00 00 00 00 00", crlf);
+                        bluetoothSerial.write(canMsg, crlf);
+                    }
+
                 }
                 // Initial Step : Send toggle the CAF0 and SH0B4 commands until button is pressed.
                 // Control in open loop - assume that sometime the elm327 will accept the two commands
                 else {
                     if (curr_elm327_state == ELM327_STATE_SEND_CAF0 ) {
                         bluetoothSerial.write("AT CAF0", crlf);
+                        mLastParkCmd = -1;
                         prev_elm327_state = ELM327_STATE_INIT;
-                        curr_elm327_state = ELM327_STATE_SEND_SH0B4;
+                        curr_elm327_state = ELM327_STATE_SEND_SH_CAN_MSG_ID;
                         Log.e(myTAG, "Periodic : Sent CAF0");
-                    } else if (curr_elm327_state == ELM327_STATE_SEND_SH0B4) {
-                        bluetoothSerial.write("ATSH0B4", crlf);
+                    } else if (curr_elm327_state == ELM327_STATE_SEND_SH_CAN_MSG_ID) {
+                        bluetoothSerial.write("ATSH" + CAN_MSG_ID, crlf);
+                        mLastParkCmd = -1;
                         prev_elm327_state = ELM327_STATE_INIT;
                         curr_elm327_state = ELM327_STATE_SEND_CAF0;
-                        Log.e(myTAG, "Periodic : Sent ATSH0B4");
+                        Log.e(myTAG, "Periodic : Sent ATSH" + CAN_MSG_ID);
                     }
                     // Next Step : Two command button logic
                     else {
-                        if (curr_elm327_state == ELM327_STATE_FORWARD_PRESSED) {
-                            bluetoothSerial.write("00 01 00 00 00 00 00", crlf);
-                            Log.e(myTAG, "Periodic : Forward Pressed");
-                        } else if (curr_elm327_state == ELM327_STATE_BACKWORD_PRESSED) {
-                            bluetoothSerial.write("00 00 01 00 00 00 00", crlf);
-                            Log.e(myTAG, "Periodic : Backward Pressed");
-                        } else if ((curr_elm327_state == ELM327_STATE_BACKWORD_RELEASED) ||
-                                (curr_elm327_state == ELM327_STATE_FORWARD_RELEASED)) {
-                            bluetoothSerial.write("00 00 00 00 00 00 00", crlf);
-                            Log.e(myTAG, "Periodic : Button Released");
+                        if (curr_elm327_state == ELM327_STATE_PARK_PRESSED) {
+                            mLastParkCmd = CeDVIR_e_RC_ParkIn;
+                            canMsg = buildCanMsg(mLastParkCmd);
+                            bluetoothSerial.write(canMsg, crlf);
+                            Log.e(myTAG, "Periodic : Park Pressed");
+                        } else if (curr_elm327_state == ELM327_STATE_RESET_PRESSED) {
+                            mLastParkCmd = CeDVIR_e_RC_ModeOff;
+                            canMsg = buildCanMsg(mLastParkCmd);
+                            bluetoothSerial.write(canMsg, crlf);
+                            Log.e(myTAG, "Periodic : Reset Pressed");
+                        } else if (curr_elm327_state == ELM327_STATE_RESET_RELEASED) {
+                            mLastParkCmd = CeDVIR_e_RC_ModeOff;
+                            canMsg = buildCanMsg(mLastParkCmd);
+                            bluetoothSerial.write(canMsg, crlf);
+                            Log.e(myTAG, "Periodic : Reset Released");
+                        } else if (curr_elm327_state == ELM327_STATE_PARK_RELEASED) {
+                            mLastParkCmd = CeDVIR_e_RC_ParkPause;
+                            canMsg = buildCanMsg(mLastParkCmd);
+                            bluetoothSerial.write(canMsg, crlf);
+                            Log.e(myTAG, "Periodic : Park Released");
+
                         }
                         prev_elm327_state = curr_elm327_state;  // Only match prev to curr when the initial step is over
                     }
@@ -171,45 +224,58 @@ public class TerminalActivity extends AppCompatActivity
         // Start the initial runnable task by posting through the handler
         handler.post(runnableCode);
 
-        forwardButton.setOnTouchListener(new View.OnTouchListener() {
+        parkButton.setOnTouchListener(new View.OnTouchListener() {
             @Override
             public boolean onTouch(View v, MotionEvent event) {
                 switch(event.getAction()) {
                     case MotionEvent.ACTION_DOWN:
 
-                        forwardButton.setBackgroundColor(Color.CYAN);
+                        parkButton.setBackgroundColor(Color.CYAN);
                         Log.e(myTAG, "setOnTouchListener : Forward pressed");
-                        curr_elm327_state = ELM327_STATE_FORWARD_PRESSED;
+                        curr_elm327_state = ELM327_STATE_PARK_PRESSED;
                         return true;
                     case MotionEvent.ACTION_UP:
-                        forwardButton.setBackgroundColor(Color.RED);
+                        parkButton.setBackgroundColor(Color.RED);
                         Log.e(myTAG, "setOnTouchListener : Forward released");
-                        curr_elm327_state = ELM327_STATE_FORWARD_RELEASED;
+                        curr_elm327_state = ELM327_STATE_PARK_RELEASED;
                         return true;
                 }
                 return false;
             }
         });  // forwardButton
 
-        backwardButton.setOnTouchListener(new View.OnTouchListener() {
+        resetButton.setOnTouchListener(new View.OnTouchListener() {
             @Override
             public boolean onTouch(View v, MotionEvent event) {
                 switch(event.getAction()) {
                     case MotionEvent.ACTION_DOWN:
 
-                        backwardButton.setBackgroundColor(Color.CYAN);
+                        resetButton.setBackgroundColor(Color.CYAN);
                         Log.e(myTAG, "setOnTouchListener: Backword pressed");
-                        curr_elm327_state = ELM327_STATE_BACKWORD_PRESSED;
+                        curr_elm327_state = ELM327_STATE_RESET_PRESSED;
                         return true;
                     case MotionEvent.ACTION_UP:
-                        backwardButton.setBackgroundColor(Color.RED);
+                        resetButton.setBackgroundColor(Color.RED);
                         Log.e(myTAG, "setOnTouchListener : Backword released");
-                        curr_elm327_state = ELM327_STATE_BACKWORD_RELEASED;
+                        curr_elm327_state = ELM327_STATE_RESET_RELEASED;
                         return true;
                 }
                 return false;
             }
         }); // backwardButton
+
+        grantedSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                if (isChecked){
+                    Log.e(myTAG, "setOnsetOnCheckedChangeListener: Granted Switched");
+                    mIsGranted = true;
+                }else{
+                    Log.e(myTAG, "setOnsetOnCheckedChangeListener: Not Granted Switched");
+                    mIsGranted = false;
+                }
+            }
+        }); //grantedSwitch
 
         // GPS Handling initialization
         locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
@@ -385,6 +451,72 @@ public class TerminalActivity extends AppCompatActivity
         }
     }
 
+
+
+     public String buildCanMsg(int PrkCmdString) {
+        String msg = "";
+        int tmp = 0;
+
+        int arc = getARC();
+        arc = arc << 2;
+        mCanMsgToSend[7] =  String.format("2%1$s",Integer.toString(arc, 16));
+
+        if (mIsGranted){
+            // turn on SuprRmtPrkVirtKeyEntlmtStsAuth bit
+            tmp = tmp | 8; //8dec = 1000;
+        }
+
+        tmp = tmp | PrkCmdString;
+
+        mCanMsgToSend[4] = String.format("%1$s0", Integer.toString(tmp, 16) ); // Convert tmp from int to hex format
+
+        msg = mCanMsgToSend[0];
+        for (int i = 1; i < 8 ; i++){
+            msg = String.format("%1$s %2$s", msg, mCanMsgToSend[i]);
+        }
+
+        return msg;
+
+        // Bytes Layouts:
+        // Byte #7 and #4 are changing, all the rest are constant.
+        // Byte #7 = VirtKeyMblDevLocDistAuth[1]  VirtKeyMblDevLocZnAuth[3]=2-OutsideVehWLZ(WithinLocation zone)  SD92P_ARC[2] 00
+        // 0 010 00 00
+
+        //Byte #6 = VirtKeyMblDevLocDirAuth[1] VirtKeyMblDevLocDistAuth[6]=2
+        //VirtKeyMblDevLocDistAuth - Always send const value=2 (No need for a radio button)
+        // 0000 0001
+
+        //Byte #5 = VirtKeyMblDevLocDirAuth[7]
+        // 0000 0000
+
+        // Byte #4 =SuprRmtPrkVirtKeyEntlmtStsAuth[1]=Not Granted/Granted SuprRmtPrkVirtKeyPrkCmdAuth[3] VirtKeyMblDevDgtlKeyIdxAuth[4]
+        // 0 000 0000
+        //SuprRmtPrkVirtKeyEntlmtStsAuth:
+        //CePKAR_e_VKM_StatEntlNotGranted     (0) // Not Granted
+        //CePKAR_e_VKM_StatEntlGranted        (1) // Granted
+        //SuprRmtPrkVirtKeyPrkCmdAuth:
+        //        CeDVIR_e_RC_ModeOff         (0) 000 //Always send PrkCmd – NoAction
+        //        CeDVIR_e_RC_ParkIn          (1) 001 //When pressing on a button – Continue Parking
+        //        CeDVIR_e_RC_ParkOut         (2) 010
+        //        CeDVIR_e_RC_ParkPause       (3) 011 //When releasing button – PauseParking
+
+
+    }
+
+    // Get Automatic Rolling Counter - 0, 1, 2,3
+    private int getARC() {
+        // Keep current counter
+        int ret = mARC;
+        // Increment the rolling counter
+        if (mARC == 3){
+            mARC = 0;
+        }else{
+            mARC++;
+        }
+
+        return ret;
+    }
+
     private void updateBluetoothState() {
         // Get the current Bluetooth state
         final int state;
@@ -405,8 +537,8 @@ public class TerminalActivity extends AppCompatActivity
             default:
                 subtitle = getString(R.string.status_disconnected);
 				// Bring back to init state
-                forwardButton.setBackgroundColor(Color.GRAY);
-                backwardButton.setBackgroundColor(Color.GRAY);
+                parkButton.setBackgroundColor(Color.GRAY);
+                resetButton.setBackgroundColor(Color.GRAY);
                 prev_elm327_state = ELM327_STATE_INIT;
                 curr_elm327_state = ELM327_STATE_SEND_CAF0;
                  Log.e(myTAG, "updateBluetoothState :  disconnected");
@@ -449,8 +581,8 @@ public class TerminalActivity extends AppCompatActivity
         Intent enableBluetooth = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
         startActivityForResult(enableBluetooth, REQUEST_ENABLE_BLUETOOTH);
         // Bring back to init state
-        forwardButton.setBackgroundColor(Color.GRAY);
-        backwardButton.setBackgroundColor(Color.GRAY);
+        parkButton.setBackgroundColor(Color.GRAY);
+        resetButton.setBackgroundColor(Color.GRAY);
         prev_elm327_state = ELM327_STATE_INIT;
         curr_elm327_state = ELM327_STATE_SEND_CAF0;
         Log.e(myTAG, "onBluetoothDisabled");
@@ -461,8 +593,8 @@ public class TerminalActivity extends AppCompatActivity
         invalidateOptionsMenu();
         updateBluetoothState();
         // Bring back to init state
-        forwardButton.setBackgroundColor(Color.GRAY);
-        backwardButton.setBackgroundColor(Color.GRAY);
+        parkButton.setBackgroundColor(Color.GRAY);
+        resetButton.setBackgroundColor(Color.GRAY);
         prev_elm327_state = ELM327_STATE_INIT;
         curr_elm327_state = ELM327_STATE_SEND_CAF0;
         Log.e(myTAG, "onBluetoothDeviceDisconnected");

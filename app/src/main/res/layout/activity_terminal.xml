@@ -9,27 +9,38 @@
 
 
     <Button
-        android:id="@+id/backward_button"
+        android:id="@+id/reset_button"
         android:layout_width="250dp"
         android:layout_height="99dp"
         android:layout_marginStart="8dp"
         android:layout_marginEnd="8dp"
         android:layout_marginBottom="16dp"
-        android:text="Backward Parking"
+        android:text="Reset"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
 
     <Button
-        android:id="@+id/forward_button"
+        android:id="@+id/park_button"
         android:layout_width="250dp"
         android:layout_height="99dp"
         android:layout_marginStart="8dp"
         android:layout_marginEnd="8dp"
         android:layout_marginBottom="28dp"
-        android:text="Forward Parking"
-        app:layout_constraintBottom_toTopOf="@+id/backward_button"
+        android:text="Park"
+        app:layout_constraintBottom_toTopOf="@+id/reset_button"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
+
+    <Switch
+        android:id="@+id/granted_switch"
+        android:layout_width="144dp"
+        android:layout_height="41dp"
+        android:text="Granted/Not Granted"
+        android:textColor="@android:color/black"
+        android:textOff="Not Granted"
+        android:textOn="Granted"
+        tools:layout_editor_absoluteX="133dp"
+        tools:layout_editor_absoluteY="397dp" />
 
 </android.support.constraint.ConstraintLayout>
