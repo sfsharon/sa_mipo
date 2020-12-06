@@ -40,6 +40,7 @@ import android.location.LocationListener;
 import android.provider.Settings;
 import android.widget.CompoundButton;
 import android.widget.Switch;
+import android.widget.TextView;
 
 import com.macroyau.blue2serial.BluetoothDeviceListDialog;
 import com.macroyau.blue2serial.BluetoothSerial;
@@ -105,7 +106,9 @@ public class TerminalActivity extends AppCompatActivity
     private Button resetButton;
     private Button backwardButton;
     private Switch grantedSwitch;
+    private Switch ARCEnabledSwitch;
     private Boolean mIsGranted = false;
+    private Boolean mIsARCEnabled = true;
     private int mARC = 0;
     private int mLastParkCmd = -1;  // -1 for none
     private int CAN_MSG_LEN = 8;
@@ -132,6 +135,11 @@ public class TerminalActivity extends AppCompatActivity
         resetButton = (Button) findViewById(R.id.reset_button);
         backwardButton = (Button) findViewById(R.id.backward_button);
         grantedSwitch = (Switch) findViewById(R.id.granted_switch);
+        ARCEnabledSwitch = (Switch) findViewById(R.id.switch_arc_enabled);
+
+        TextView txtViewVersion = (TextView) findViewById(R.id.TxtViewVersion);
+        String mVersion = "V1.03";
+        txtViewVersion.setText(mVersion);
 
         for (int i = 0; i < 6 ; i++){
             mCanMsgToSend[i] = "00";
@@ -152,7 +160,23 @@ public class TerminalActivity extends AppCompatActivity
                 // Do something here on the main thread
                 // Repeat this the same runnable code block again another 200 milliseconds
                 // 'this' is referencing the Runnable object
-                handler.postDelayed(this, ELM327_PERIOD_MILLISECOND);
+                TextView periodicTxt = (TextView) findViewById(R.id.periodic_time_txt);
+
+                int elm27_period_msec = ELM327_PERIOD_MILLISECOND;
+                try {
+                    String input = periodicTxt.getText().toString();
+                    // Convert to int
+                    String[] lines = input.split("\n");
+                    elm27_period_msec = Integer.parseInt(lines[0].trim()); //We know this is a number.
+                }catch(Exception e) {
+                    // If user will delete periodicTxt (using backspacekey) we need to catch this inorder to crush
+                    elm27_period_msec = ELM327_PERIOD_MILLISECOND;
+                }
+                /* Minimum number we allowed is ELM327_PERIOD_MILLISECOND=200msec */
+                if (elm27_period_msec < ELM327_PERIOD_MILLISECOND){
+                    elm27_period_msec = ELM327_PERIOD_MILLISECOND;
+                }
+                handler.postDelayed(this, elm27_period_msec/*ELM327_PERIOD_MILLISECOND*/);
 
                 // Reconnect mechanism
                 if ((bluetoothSerial.getState() == BluetoothSerial.STATE_DISCONNECTED) &&
@@ -172,9 +196,14 @@ public class TerminalActivity extends AppCompatActivity
                     if (mLastParkCmd == -1){
                         bluetoothSerial.write("\n\r", crlf);   // Repeat the last message transmitted
                     }else {
-                        canMsg = buildCanMsg(mLastParkCmd);
-                        //bluetoothSerial.write("00 00 00 00 00 00 00", crlf);
-                        bluetoothSerial.write(canMsg, crlf);
+                        if (mIsARCEnabled == true) {
+                            canMsg = buildCanMsg(mLastParkCmd);
+                            //bluetoothSerial.write("00 00 00 00 00 00 00", crlf);
+                            bluetoothSerial.write(canMsg, crlf);
+                        }else{
+                            bluetoothSerial.write("\n\r", crlf);   // Repeat the last message transmitted
+                        }
+
                     }
 
                 }
@@ -295,12 +324,12 @@ public class TerminalActivity extends AppCompatActivity
                     case MotionEvent.ACTION_DOWN:
 
                         backwardButton.setBackgroundColor(Color.CYAN);
-                        Log.e(myTAG, "setOnTouchListener: Backword pressed");
+                        Log.e(myTAG, "setOnTouchListener: Backward pressed");
                         curr_elm327_state = ELM327_STATE_BACKWARD_PRESSED;
                         return true;
                     case MotionEvent.ACTION_UP:
                         backwardButton.setBackgroundColor(Color.GRAY);
-                        Log.e(myTAG, "setOnTouchListener : Backword released");
+                        Log.e(myTAG, "setOnTouchListener : Backward released");
                         curr_elm327_state = ELM327_STATE_BACKWARD_RELEASED;
                         return true;
                 }
@@ -311,15 +340,37 @@ public class TerminalActivity extends AppCompatActivity
         grantedSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                String canMsg = "";
                 if (isChecked){
                     Log.e(myTAG, "setOnsetOnCheckedChangeListener: Granted Switched");
                     mIsGranted = true;
+                    mLastParkCmd = CePKAR_e_VKM_CmdNoAction;
+                    canMsg = buildCanMsg(mLastParkCmd);
+                    bluetoothSerial.write(canMsg, crlf);
                 }else{
                     Log.e(myTAG, "setOnsetOnCheckedChangeListener: Not Granted Switched");
                     mIsGranted = false;
+                    mLastParkCmd = CePKAR_e_VKM_CmdNoAction;
+                    canMsg = buildCanMsg(mLastParkCmd);
+                    bluetoothSerial.write(canMsg, crlf);
                 }
             }
         }); //grantedSwitch
+
+        ARCEnabledSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                if (isChecked){
+                    Log.e(myTAG, "setOnsetOnCheckedChangeListener: ARC Enabled");
+                    mIsARCEnabled = true;
+                }else{
+                    Log.e(myTAG, "setOnsetOnCheckedChangeListener: ARC Disabled");
+                    mIsARCEnabled = false;
+                }
+            }
+        }); //ARCEnabledSwitch
+
+
 
         // GPS Handling initialization
         locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
@@ -519,6 +570,8 @@ public class TerminalActivity extends AppCompatActivity
             msg = String.format("%1$s %2$s", msg, mCanMsgToSend[i]);
         }
 
+        //TODO EK Remove
+         Log.e(myTAG, "buildCanMsg : msg " + msg);
         return msg;
 
         // Bytes Layouts:
@@ -551,6 +604,10 @@ public class TerminalActivity extends AppCompatActivity
     private int getARC() {
         // Keep current counter
         int ret = mARC;
+        if (mIsARCEnabled == false) {
+            /* ARC is disabled. return 0 */
+            return 0;
+        }
         // Increment the rolling counter
         if (mARC == 3){
             mARC = 0;

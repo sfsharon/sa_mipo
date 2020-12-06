@@ -8,6 +8,32 @@
     tools:context=".TerminalActivity">
 
 
+    <TextView
+        android:id="@+id/textView3"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="32dp"
+        android:layout_marginTop="64dp"
+        android:layout_marginEnd="20dp"
+        android:text="Periodic time"
+        android:textColor="@android:color/black"
+        android:textSize="14sp"
+        app:layout_constraintEnd_toStartOf="@+id/periodic_time_txt"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/switch_arc_enabled" />
+
+    <Switch
+        android:id="@+id/granted_switch2"
+        android:layout_width="0dp"
+        android:layout_height="41dp"
+        android:layout_marginTop="16dp"
+        android:text="Granted/Not Granted"
+        android:textColor="@android:color/black"
+        android:textOff="Not Granted"
+        android:textOn="Granted"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:layout_editor_absoluteX="16dp" />
+
     <Button
         android:id="@+id/reset_button"
         android:layout_width="67dp"
@@ -59,5 +85,50 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.496"
         app:layout_constraintStart_toStartOf="parent" />
+
+    <Switch
+        android:id="@+id/switch_arc_enabled"
+        android:layout_width="wrap_content"
+        android:layout_height="43dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="33dp"
+        android:layout_marginEnd="275dp"
+        android:checked="true"
+        android:text="ARC Enabled"
+        android:textColor="@android:color/background_dark"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/reset_button" />
+
+    <EditText
+        android:id="@+id/periodic_time_txt"
+        android:layout_width="87dp"
+        android:layout_height="40dp"
+        android:layout_marginStart="20dp"
+        android:layout_marginTop="52dp"
+        android:layout_marginEnd="204dp"
+        android:ems="10"
+        android:inputType="number"
+        android:text="1000"
+        android:textColor="@android:color/black"
+        android:textSize="14sp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@+id/textView3"
+        app:layout_constraintTop_toBottomOf="@+id/switch_arc_enabled" />
+
+    <TextView
+        android:id="@+id/TxtViewVersion"
+        android:layout_width="102dp"
+        android:layout_height="55dp"
+        android:layout_marginStart="320dp"
+        android:layout_marginBottom="1dp"
+        android:text="V 1.0"
+        android:textColor="@android:color/holo_red_dark"
+        android:textSize="24sp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/backward_button" />
 
 </android.support.constraint.ConstraintLayout>
